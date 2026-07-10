@@ -1,0 +1,23 @@
+:root {
+  --page: #F1F5F2; --page2: #EEF3F0; --card: #fff; --ink: #28332E; --ink2: #3A4742; --ink3: #52605A;
+  --muted: #7C8A82; --muted2: #8A968E; --faint: #A9B4AD; --line: #E7EEE9; --lineSoft: #EEF3EF; --chipBg: #F2F6F3;
+  --brand: #5C8A77; --brand2: #41685A; --brandDeep: #487062; --onTint: #3C6353; --onBrand: #D6ECE1; --onBrand2: #CFE6DA;
+  --tint: #E3EFE9; --tint2: #DCEAE3; --tint3: #EAF3EE; --tintLine: #DCEAE3;
+  --warnBg: #FBF4E6; --warnLine: #F0E2C4; --warnInk: #8A6A1E; --warnInk2: #8A7338; --warnChip: #F2E4C2; --warnAmber: #C0913F;
+  --docBlue: #5E739B; --docBlueBg: #E4E9F0; --rosaBg: #F3EADF; --rosaInk: #A56F42; --anomalyDot: #D6A547;
+}
+
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+html, body, #root { margin: 0; height: 100%; }
+body { font-family: 'Hanken Grotesk', sans-serif; background: var(--page); color: var(--ink); }
+a { color: var(--brand); text-decoration: none; }
+a:hover { color: var(--brand2); }
+input, textarea, button { font-family: inherit; }
+
+.serif { font-family: 'Instrument Serif', serif; }
+.pressable { cursor: pointer; }
+.side-item:hover { background: var(--chipBg); }
+.hoverable:hover { filter: brightness(1.04); }
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-thumb { background: #D5DFD9; border-radius: 99px; border: 3px solid var(--page); }
