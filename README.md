@@ -1,8 +1,8 @@
 # Vela Web
 
-**Home nursing-care app for the web.** Two people share one patient: the **nurse** records vitals, medication, notes and the shift handoff — and the **family** sees it all appear **live**, and can message the nurse.
+**Home nursing-care app for the web.** Two people share one patient: the **nurse** records vitals, medication, events notes and the shift handoff — and the **family** sees it all appear **live**, and can message the nurse.
 
-Built with **React + TypeScript + Vite** on **Supabase** (Postgres + Auth + Realtime + Row-Level Security). Spanish-language UI. Runs with one command via Docker.
+Built with **React + TypeScript + Vite** on **Supabase** (Postgres + Auth + Realtime + Row-Level Security). Spanish-language UI. Runs with one command via Docker. 
 
 > There's a companion **React Native / Expo mobile app** on the same backend: [vela](https://github.com/angelarroyod/vela). Same accounts, same data, realtime across both.
 
