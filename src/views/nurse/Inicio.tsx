@@ -1,84 +1,92 @@
-import { useMembership } from '../../auth/useMembership';
-import { useTimeline } from '../../care/hooks';
-import { Icon, type IconName } from '../../components/Icon';
+import { useState } from 'react';
+import { useCare } from '../../care/useCare';
+import { refetchLive } from '../../care/hooks';
+import { aLas, firstName, fmtDec, greeting, initials, nextStep } from '../../care/logic';
+import { writeOrQueue } from '../../lib/offline';
+import { Icon } from '../../components/Icon';
+import { LogoMark } from '../../ui/brand';
+import { Button } from '../../ui/controls';
+import { Avatar, Card, Chip, ListRow, Screen, ScreenHeader, SectionLabel } from '../../ui/layout';
+import { fs, shiftLabel, useShift } from './shared';
 
-const chip = { fontWeight: 600, fontSize: 12, background: 'var(--chipBg)', border: '1px solid var(--line)', padding: '6px 12px', borderRadius: 99 } as const;
+// ponytail: module-level so a notice queued offline survives leaving Inicio; the real event takes over once sent.
+let queuedNotice = ''; // takenAt of the fever reading whose "Avisó al médico" is in the outbox
 
-function Task({ icon, iconBg, iconColor, title, sub, time, dashed }: { icon: IconName; iconBg: string; iconColor: string; title: string; sub: string; time: string; dashed?: boolean }) {
+export default function Inicio() {
+  const { patientId, patient, me, membership, go, toast } = useCare();
+  const s = useShift();
+  const [busy, setBusy] = useState(false);
+  const meFirst = firstName(me.fullName);
+  const feverAt = s.vitals[0]?.takenAt;
+  const next = nextStep({
+    fever: s.fever, feverNotified: !!s.fever?.notified || queuedNotice === feverAt, hasVitals: s.vitals.length > 0, nextMed: s.nextMed,
+    handoffDone: !!s.handedOff, patientFirst: firstName(patient?.fullName), nextShiftName: s.nextName, meFirst,
+  });
+  const done = s.meds.filter((m) => m.status === 'administered').length;
+  const lastVital = s.shiftVitals[0];
+
+  const notify = async () => {
+    if (!s.fever) return;
+    setBusy(true);
+    const r = await writeOrQueue('care_events', {
+      patient_id: patientId, author_id: me.id, type: 'doctor_notified', title: 'Avisó al médico',
+      body: `Por la fiebre de ${fmtDec(s.fever.temp)} °C.`, severity: 'warning', occurred_at: new Date().toISOString(),
+    });
+    if ('queued' in r) queuedNotice = feverAt ?? ''; // the hero moves on: a second tap would queue a duplicate
+    setBusy(false);
+    if ('error' in r) return toast('No se pudo anotar el aviso. Inténtalo de nuevo.');
+    if ('queued' in r) return toast('Guardado en el teléfono. Se enviará al volver la conexión.');
+    refetchLive();
+    toast('Queda anotado que avisaste al médico.');
+  };
+  const t = next.target;
+  const act = t === 'notify' ? notify : () => go(t);
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--page)', border: `1px ${dashed ? 'dashed' : 'solid'} var(--lineSoft)`, borderRadius: 16, padding: '14px 16px' }}>
-      <div style={{ width: 44, height: 44, borderRadius: 13, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={icon} size={21} color={iconColor} strokeWidth={1.8} /></div>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{title}</div>
-        <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--muted2)' }}>{sub}</div>
+    <Screen gap={20}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+        {/* the sidebar carries the logo from 900px */}
+        <div className="lz-mobile-only" style={{ marginRight: 'auto' }}><LogoMark withName /></div>
+        <Avatar text={initials(me.fullName)} label={me.fullName ? `Tu perfil, ${me.fullName}` : 'Tu perfil'} onClick={() => go('perfil')} />
       </div>
-      <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{time}</span>
-    </div>
-  );
-}
+      <ScreenHeader title={meFirst ? `${greeting()}, ${meFirst}` : greeting()} sub={shiftLabel(membership.shift) || undefined} size={34} />
 
-export default function Inicio({ setScreen }: { setScreen?: (id: string) => void }) {
-  const { membership } = useMembership();
-  const timeline = useTimeline(membership?.patient_id).slice(-2).reverse();
+      <Card as="section" tone={next.tone === 'danger' ? 'heroDanger' : 'hero'} aria-labelledby="next-h" padding={20} gap={6}>
+        <h2 id="next-h" style={{ margin: 0, fontSize: fs(14), fontWeight: 700, letterSpacing: '.08em', color: 'var(--heroSub)' }}>{next.eyebrow}</h2>
+        <p style={{ margin: 0, fontSize: fs(22), fontWeight: 700, lineHeight: 1.25 }}>{next.title}</p>
+        <p style={{ margin: 0, fontSize: fs(16), color: 'var(--heroSub)', lineHeight: 1.4 }}>{next.sub}</p>
+        <Button variant="white" onClick={act} disabled={busy} style={{ marginTop: 12 }}>
+          {next.cta}<Icon name="chevronRight" size={18} strokeWidth={2.4} />
+        </Button>
+      </Card>
 
-  return (
-    <div>
-      <div className="serif" style={{ fontSize: 34, color: 'var(--ink)', lineHeight: 1.1 }}>Buenas noches, Carmen</div>
-      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--muted)', marginTop: 7 }}>Turno nocturno · 22:00 – 06:00</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 20, marginTop: 26, alignItems: 'start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ background: 'var(--card)', borderRadius: 24, padding: 22, border: '1px solid var(--lineSoft)', boxShadow: '0 6px 20px rgba(53,94,80,.06)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div className="serif" style={{ width: 58, height: 58, borderRadius: 18, background: 'var(--tint)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 27, color: 'var(--onTint)', border: '1px solid var(--tintLine)' }}>E</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 18, color: 'var(--ink)' }}>Sra. Elena Rivas</div>
-                <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>78 años · Habitación principal</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--tint)', padding: '7px 13px', borderRadius: 99 }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--brand)' }} /><span style={{ fontWeight: 700, fontSize: 12, color: 'var(--onTint)' }}>Estable</span>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <span style={{ ...chip, color: 'var(--muted)' }}>Hipertensión</span>
-              <span style={{ ...chip, color: 'var(--muted)' }}>Movilidad reducida</span>
-              <span style={{ ...chip, color: 'var(--warnInk)', background: 'var(--warnBg)', borderColor: 'var(--warnLine)' }}>Alergia · Penicilina</span>
+      {patient && (
+        <Card as="section" aria-label="Paciente" padding={18} gap={14}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <Avatar text={initials(patient.fullName).charAt(0)} size={52} radius={16} display fontSize={24} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: fs(18) }}>{patient.fullName}</p>
+              <p style={{ margin: '2px 0 0', fontSize: fs(15), color: 'var(--ink2)' }}>
+                {[patient.age != null && `${patient.age} años`, patient.room || 'en casa'].filter(Boolean).join(' · ')}
+              </p>
             </div>
           </div>
-          <div style={{ background: 'var(--card)', borderRadius: 24, padding: 22, border: '1px solid var(--lineSoft)', boxShadow: '0 6px 18px rgba(53,94,80,.05)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>Próximas tareas</span>
-              <span className="pressable" style={{ fontWeight: 600, fontSize: 13, color: 'var(--brand)' }}>Ver todas</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Task icon="pill" iconBg="var(--warnBg)" iconColor="#C0913F" title="Medicación" sub="Losartán 50 mg" time="23:30" />
-              <Task icon="pulse" iconBg="var(--tint)" iconColor="var(--brand)" title="Signos vitales" sub="Control de rutina" time="00:00" />
-              <Task icon="plus" iconBg="var(--tint)" iconColor="var(--brand)" title="Cambio de posición" sub="Prevención de úlceras" time="03:00" dashed />
-            </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            {/estable/i.test(patient.status)
+              ? <Chip tone="status" icon="check">{patient.status}</Chip>
+              : <Chip tone="warn" icon="warning">{patient.status}</Chip>}
+            {patient.conditions.map((c) => <Chip key={c}>{c}</Chip>)}
           </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div className="pressable hoverable" onClick={() => setScreen?.('signos')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--brand)', borderRadius: 18, height: 58, boxShadow: '0 10px 24px rgba(92,138,119,.34)' }}>
-            <Icon name="plus" size={20} color="#fff" strokeWidth={2} /><span style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>Registrar signos vitales</span>
-          </div>
-          <div style={{ background: 'var(--card)', borderRadius: 24, padding: '20px 22px', border: '1px solid var(--lineSoft)', boxShadow: '0 6px 18px rgba(53,94,80,.05)' }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 14 }}>Esta noche</div>
-            {timeline.length === 0 ? <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--muted)' }}>Sin registros aún.</div> : (
-              <div style={{ position: 'relative', paddingLeft: 6 }}>
-                <div style={{ position: 'absolute', left: 11, top: 6, bottom: 6, width: 2, background: '#E2EAE5' }} />
-                {timeline.map((e, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 12, paddingBottom: i < timeline.length - 1 ? 14 : 0, position: 'relative' }}>
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--brand)', border: '3px solid var(--card)', marginTop: 3, zIndex: 1 }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>{e.title}</span><span style={{ fontWeight: 600, fontSize: 11, color: 'var(--muted2)' }}>{e.time}</span></div>
-                      <div style={{ fontWeight: 500, fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{e.body}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+        </Card>
+      )}
+
+      <section aria-labelledby="shift-h" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <SectionLabel id="shift-h">En este turno</SectionLabel>
+        <ListRow title="Medicación" sub={s.meds.length ? `${done} de ${s.meds.length} dosis dadas` : 'Sin dosis programadas hoy'} onClick={() => go('meds')} />
+        <ListRow title="Signos vitales" sub={lastVital ? `Último control ${aLas(lastVital.time)}` : 'Aún no hay controles en este turno'} onClick={() => go('signos')} />
+        <ListRow title="Relevo de turno" onClick={() => go('relevo')}
+          sub={s.handedOff ? (s.nextName ? `Entregado a ${s.nextName}` : 'Turno entregado') : (s.nextName ? `Entregar a ${s.nextName}` : 'Entregar al siguiente turno')} />
+      </section>
+    </Screen>
   );
 }

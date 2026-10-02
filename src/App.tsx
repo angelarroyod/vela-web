@@ -1,47 +1,51 @@
-import { useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentType } from 'react';
 import { useAuth } from './auth/useAuth';
 import { useMembership } from './auth/useMembership';
 import { AuthFlow } from './auth/AuthFlow';
 import Onboarding from './auth/Onboarding';
+import { CareProvider } from './care/CareProvider';
+import { useCare } from './care/useCare';
+import type { ScreenId } from './care/useCare';
 import { AppShell } from './shell/AppShell';
+import { ToastHost } from './ui/feedback';
 import NInicio from './views/nurse/Inicio';
 import NSignos from './views/nurse/Signos';
 import NMeds from './views/nurse/Medicacion';
 import NRelevo from './views/nurse/Relevo';
+import NPerfil from './views/nurse/Perfil';
 import FEstado from './views/family/Estado';
 import FActividad from './views/family/Actividad';
 import FMensajes from './views/family/Mensajes';
 import FPerfil from './views/family/Perfil';
+import Ajustes from './views/settings/Ajustes';
+import Privacidad from './views/settings/Privacidad';
+
+type Views = Partial<Record<ScreenId, ComponentType>> & { inicio: ComponentType };
+const NURSE: Views = { inicio: NInicio, signos: NSignos, meds: NMeds, relevo: NRelevo, perfil: NPerfil };
+const FAMILY: Views = { inicio: FEstado, actividad: FActividad, mensajes: FMensajes, perfil: FPerfil };
+
+function CurrentView() {
+  const { role, screen, go } = useCare();
+  if (screen === 'ajustes') return <Ajustes />;
+  if (screen === 'privacidad') return <Privacidad onBack={() => go('ajustes')} />;
+  const views = role === 'nurse' ? NURSE : FAMILY;
+  const View = views[screen] ?? views.inicio;
+  return <View />;
+}
 
 export default function App() {
   const { session, loading } = useAuth();
   const { membership, loading: mLoading } = useMembership();
-  const [screen, setScreen] = useState('inicio');
 
   if (loading || (session && mLoading)) return null;
-  if (!session) return <AuthFlow />;
-  if (!membership) return <Onboarding />;
-
-  const role: 'nurse' | 'family' = membership.role === 'nurse' ? 'nurse' : 'family';
-  const nurseViews: Record<string, ReactNode> = {
-    inicio: <NInicio setScreen={setScreen} />,
-    signos: <NSignos setScreen={setScreen} />,
-    meds: <NMeds />,
-    relevo: <NRelevo setScreen={setScreen} />,
-  };
-  const familyViews: Record<string, ReactNode> = {
-    inicio: <FEstado setScreen={setScreen} />,
-    actividad: <FActividad />,
-    mensajes: <FMensajes />,
-    perfil: <FPerfil />,
-  };
-  const views = role === 'nurse' ? nurseViews : familyViews;
-  const view = views[screen] ?? views.inicio;
+  if (!session) return <><AuthFlow /><ToastHost /></>;
+  if (!membership) return <><Onboarding /><ToastHost /></>;
 
   return (
-    <AppShell role={role} screen={screen} setScreen={setScreen}>
-      {view}
-    </AppShell>
+    <CareProvider membership={membership}>
+      <AppShell>
+        <CurrentView />
+      </AppShell>
+    </CareProvider>
   );
 }

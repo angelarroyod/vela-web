@@ -1,8 +1,14 @@
-# Vela Web
+# Lazo (vela-web)
+
+> *Quien cuida y quien quiere, siempre unidos.*
 
 **Home nursing-care app for the web.** Two people share one patient: the **nurse** records vitals, medication, events notes and the shift handoff — and the **family** sees it all appear **live**, and can message the nurse.
 
-Built with **React + TypeScript + Vite** on **Supabase** (Postgres + Auth + Realtime + Row-Level Security). Spanish-language UI. Runs with one command via Docker. 
+Built with **React + TypeScript + Vite** on **Supabase** (Postgres + Auth + Realtime + Row-Level Security). Spanish-language UI. Runs with one command via Docker.
+
+**Accessible by design** (Lazo design system): Atkinson Hyperlegible type, an in-app text size setting from 100 to 200%, WCAG AA contrast, status never shown by color alone, plain-language vitals with the clinical term in brackets, and screen-reader live regions for chat and toasts. It also handles edge states: offline (writes queue and sync on reconnect), failed saves (data kept, "Reintentar"), fever alerts, first-shift empty states, and undo on every write. Phone-first layout with a bottom tab bar; on desktop a sidebar takes its place.
+
+> *Lazo* was formerly *Vela*; the repos keep their original names.
 
 > There's a companion **React Native / Expo mobile app** on the same backend: [vela](https://github.com/angelarroyod/vela). Same accounts, same data, realtime across both.
 
@@ -12,10 +18,11 @@ Built with **React + TypeScript + Vite** on **Supabase** (Postgres + Auth + Real
 
 | Nurse | Family |
 |---|---|
-| **Inicio del turno** — patient card, upcoming tasks, tonight's timeline | **Estado** — reassurance hero + latest vitals |
-| **Signos vitales** — record BP / HR / temp / SpO₂, flag an anomaly | **Actividad** — live feed of everything the nurse logs |
-| **Medicación** — dose list, tap to mark administered | **Mensajes** — live chat with the nurse |
-| **Relevo de turno** — shift timeline + handoff to the day team | **Perfil** — conditions, allergies, care team, emergency contacts |
+| **Inicio**: "Lo siguiente" (the one next step: fever → notify the doctor, first vitals, next dose, handoff), patient card, shift rows | **Estado**: plain-language status, "Lo que debes saber", latest vitals with Normal/Revisar words |
+| **Signos**: each value checked against its normal range as you type, fever alert, "Avisar a la familia" | **Actividad**: live feed with a "Para saber" filter |
+| **Medicación**: today's doses, "Marcar como dada" with undo | **Mensajes**: live chat with quick replies |
+| **Relevo**: structured handoff (resumen → a vigilar → tareas → timeline) | **Perfil**: allergies, conditions, care team, 112 |
+| **Perfil**: family invite code (share or copy) | **Ajustes**: text size, privacy, delete account |
 
 Access is patient-scoped: a user only ever sees patients they're a member of. That's enforced by **Postgres RLS**, not by the client.
 
@@ -32,9 +39,12 @@ Create a project at [supabase.com](https://supabase.com), then in its **SQL Edit
 ```
 supabase/migrations/0001_schema.sql   # tables + profile trigger
 supabase/migrations/0002_rls.sql      # row-level security, helpers, RPCs
+supabase/migrations/0003_lazo.sql     # conditions/allergies, undo policies, care_team(), realtime publication
 ```
 
-Both are idempotent — safe to re-run.
+All three are idempotent, so they're safe to re-run. Without `0003`, realtime updates won't fire on a fresh project.
+
+Optional, for **Eliminar mi cuenta**: `supabase functions deploy delete-account`.
 
 **2. Configure**
 
@@ -63,7 +73,7 @@ docker compose up --build
 
 **4. Use it**
 
-Sign up → choose **Soy enfermera/o** → create a patient. Then in the nurse's sidebar you can generate a **family invite code**; sign up a second account, choose **Soy familiar**, and redeem the code. Now record a vital as the nurse and watch it appear on the family screen instantly.
+Sign up → choose **Soy enfermera o enfermero** → create a patient. Then under the nurse's **Perfil** you'll find the **family invite code**; sign up a second account, choose **Soy familiar**, and redeem the code. Now record a vital as the nurse and watch it appear on the family screen instantly.
 
 > For local testing, turn **off** email confirmation in Supabase → Authentication → Sign In / Providers → Email, so signup returns a session immediately.
 
@@ -91,12 +101,13 @@ npm run build       # tsc -b && vite build → dist/
 
 ```
 src/
-  lib/supabase.ts     # client + hhmm() + mutate() (surfaces write errors)
-  theme.css           # design tokens as CSS custom properties
-  auth/               # AuthProvider, useAuth, useMembership, Welcome/Login/Signup/Onboarding
-  care/               # useLiveList (realtime) + per-resource hooks + row→view mappers
-  shell/              # AppShell, Sidebar, Topbar
-  views/nurse|family/ # the 8 role views
+  lib/                # supabase client, offline outbox, text scale
+  theme.css           # Lazo tokens as CSS custom properties (--u = text scale)
+  ui/                 # design-system primitives (Button, TextField, VitalField, Sheet, Toast…)
+  auth/               # AuthProvider, useMembership, Welcome/Login/Signup/Onboarding
+  care/               # useLiveList (realtime), hooks, CareProvider, logic.ts (pure, tested)
+  shell/              # AppShell: tab bar (phone) / sidebar (desktop), offline bar
+  views/nurse|family|settings/
   components/Icon.tsx
 supabase/migrations/  # schema + RLS (run these in your Supabase project)
 ```
