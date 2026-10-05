@@ -1,96 +1,90 @@
-import { useState } from 'react';
-import { useAuth } from '../../auth/useAuth';
-import { useMembership } from '../../auth/useMembership';
-import { supabase, mutate } from '../../lib/supabase';
-import { Icon } from '../../components/Icon';
+import { useEffect, useState } from 'react';
+import { useCare } from '../../care/useCare';
+import { refetchLive } from '../../care/hooks';
+import { VITALS, checkVital, fmtDec, isFever, parseDec } from '../../care/logic';
+import type { VitalKey } from '../../care/logic';
+import { writeOrQueue } from '../../lib/offline';
+import { Button, SwitchRow, VitalField } from '../../ui/controls';
+import { Alert } from '../../ui/feedback';
+import { Screen, ScreenHeader } from '../../ui/layout';
+import { fs, undoWrite } from './shared';
 
-const card = { background: 'var(--card)', borderRadius: 20, padding: '18px 20px', border: '1px solid var(--lineSoft)' } as const;
+type Vit = Record<VitalKey, string>;
+const EMPTY: Vit = { sys: '', dia: '', hr: '', temp: '', spo2: '' };
+// ponytail: module-level so "Deshacer" can refill the form after the screen remounts.
+let undone: { vit: Vit; note: string } | null = null;
 
-function VitalInput({ label, value, onChange, placeholder, unit }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; unit: string }) {
-  return (
-    <div style={card}>
-      <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--muted2)' }}>{label}</div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 9 }}>
-        <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-          style={{ fontWeight: 800, fontSize: 30, color: 'var(--ink)', border: 'none', outline: 'none', width: '100%', background: 'transparent' }} />
-        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--muted2)' }}>{unit}</span>
-      </div>
-    </div>
-  );
-}
-
-export default function Signos({ setScreen }: { setScreen?: (id: string) => void }) {
-  const { session } = useAuth();
-  const { membership } = useMembership();
-  const [bp, setBp] = useState('');
-  const [hr, setHr] = useState('');
-  const [temp, setTemp] = useState('');
-  const [spo2, setSpo2] = useState('');
-  const [anomaly, setAnomaly] = useState(false);
-  const [note, setNote] = useState('');
+export default function Signos() {
+  const { patientId, patient, me, go, toast } = useCare();
+  const [vit, setVit] = useState<Vit>(() => undone?.vit ?? EMPTY);
+  const [note, setNote] = useState(() => undone?.note ?? '');
+  useEffect(() => { undone = null; }, []);
+  const [notify, setNotify] = useState<boolean | null>(null);
+  const [vitErr, setVitErr] = useState('');
+  const [saveFailed, setSaveFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const outCount = VITALS.filter((v) => ['low', 'high'].includes(checkVital(v, vit[v.k]))).length;
+  const notifyOn = notify ?? outCount > 0;
+  const tNow = parseDec(vit.temp);
+
   const save = async () => {
-    if (!membership) return;
+    const missing = VITALS.filter((v) => ['empty', 'invalid'].includes(checkVital(v, vit[v.k]))).map((v) => v.label.split(' (')[0].toLowerCase());
+    if (missing.length) return setVitErr('Revisa: ' + missing.join(', ') + '.');
     setBusy(true);
-    const [sys, dia] = bp.split('/').map((n) => parseInt(n, 10));
-    const err = await mutate(supabase.from('vitals').insert({
-      patient_id: membership.patient_id, recorded_by: session?.user.id,
-      bp_sys: sys, bp_dia: dia, hr: Number(hr), temp_c: Number(temp), spo2: Number(spo2), note, has_anomaly: anomaly,
-    }));
-    if (err) { setBusy(false); alert('No se pudo guardar: ' + err); return; }
-    await mutate(supabase.from('care_events').insert({
-      patient_id: membership.patient_id, author_id: session?.user.id, type: 'vitals',
-      title: 'Signos vitales', body: `PA ${bp} · FC ${hr} · ${temp}° · SpO₂ ${spo2}%`, severity: anomaly ? 'warning' : 'info',
-    }));
-    setBusy(false);
-    setScreen?.('inicio');
+    const int = (k: VitalKey) => Math.round(parseDec(vit[k])); // integer columns
+    const [sys, dia, hr, spo2] = [int('sys'), int('dia'), int('hr'), int('spo2')];
+    const temp = Math.round(parseDec(vit.temp) * 10) / 10;
+    const at = new Date().toISOString(); // client time, so a queued control keeps when it was taken
+    const vRow = { patient_id: patientId, recorded_by: me.id, bp_sys: sys, bp_dia: dia, hr, temp_c: temp, spo2, note: note.trim() || null, has_anomaly: outCount > 0, taken_at: at };
+    // ponytail: web has no push. "Avisar" = a 'warning' event, highlighted in the family's feed.
+    const eRow = { patient_id: patientId, author_id: me.id, type: 'vitals', title: 'Signos vitales', severity: notifyOn ? 'warning' : 'info', occurred_at: at,
+      body: `Presión ${sys}/${dia}, pulso ${hr}, ${fmtDec(temp)} °C, oxígeno ${spo2} %.${isFever(temp) ? ' Fiebre.' : ''}` };
+    const rv = await writeOrQueue('vitals', vRow);
+    const re = 'error' in rv ? rv : await writeOrQueue('care_events', eRow);
+    if ('error' in rv || 'error' in re) {
+      if (!('error' in rv)) await undoWrite('vitals', vRow, rv); // no half-saved control
+      setBusy(false);
+      return setSaveFailed(true);
+    }
+    const kept = { vit, note };
+    go('inicio');
+    toast('queued' in rv ? 'Guardado en el teléfono. Se enviará al volver la conexión.' : notifyOn ? 'Control guardado. La familia ha sido avisada.' : 'Control guardado.', async () => {
+      const ok = (await undoWrite('care_events', eRow, re)) && (await undoWrite('vitals', vRow, rv));
+      refetchLive();
+      if (!ok) return toast('No se pudo deshacer.');
+      undone = kept;
+      go('signos');
+    });
   };
 
   return (
-    <div>
-      <div className="serif" style={{ fontSize: 30, color: 'var(--ink)', lineHeight: 1.1 }}>Signos vitales</div>
-      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--muted)', marginTop: 7 }}>Sra. Elena · nuevo control</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginTop: 26, alignItems: 'start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <VitalInput label="Presión arterial" value={bp} onChange={setBp} placeholder="120/80" unit="mmHg" />
-            <VitalInput label="Frecuencia cardíaca" value={hr} onChange={setHr} placeholder="72" unit="lpm" />
-            <VitalInput label="Temperatura" value={temp} onChange={setTemp} placeholder="36.5" unit="°C" />
-            <VitalInput label="Saturación O₂" value={spo2} onChange={setSpo2} placeholder="97" unit="%" />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--card)', border: '1px solid var(--lineSoft)', borderRadius: 18, padding: '16px 18px' }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--warnBg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="warningTri" size={20} color="var(--warnAmber)" strokeWidth={2} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>¿Alguna anomalía?</div>
-              <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--muted2)' }}>Avísale a la familia si algo cambia</div>
-            </div>
-            <div className="pressable" onClick={() => setAnomaly((a) => !a)} style={{ width: 48, height: 28, borderRadius: 99, background: anomaly ? 'var(--brand)' : '#E4EAE6', position: 'relative' }}>
-              <span style={{ position: 'absolute', top: 3, left: anomaly ? 23 : 3, width: 22, height: 22, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.15)' }} />
-            </div>
-          </div>
-          <div style={{ background: 'var(--card)', border: '1px solid var(--lineSoft)', borderRadius: 18, padding: '16px 18px' }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 8 }}>Nota del control</div>
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Cómo pasó el turno…"
-              style={{ fontWeight: 500, fontSize: 15, color: 'var(--ink3)', width: '100%', minHeight: 60, border: 'none', outline: 'none', resize: 'vertical', background: 'transparent' }} />
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <button onClick={save} className="hoverable" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--brand)', borderRadius: 18, height: 56, border: 'none', cursor: 'pointer', boxShadow: '0 10px 24px rgba(92,138,119,.34)' }}>
-            <Icon name="check" size={20} color="#fff" strokeWidth={2.2} />
-            <span style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>{busy ? 'Guardando…' : 'Guardar registro'}</span>
-          </button>
-          <div style={{ background: 'var(--tint3)', border: '1px solid var(--onBrand2)', borderRadius: 18, padding: '16px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <Icon name="warningCircle" size={16} color="var(--onTint)" strokeWidth={2} />
-              <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--onTint)' }}>Se comparte con la familia</span>
-            </div>
-            <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--onTint)', lineHeight: 1.5, opacity: 0.85 }}>Lucía verá este control en cuanto lo guardes.</div>
-          </div>
-        </div>
+    <Screen>
+      <ScreenHeader title="Signos vitales" sub={patient?.fullName ? `${patient.fullName} · nuevo control` : 'Nuevo control'} />
+      {isFever(tNow) && <Alert tone="danger" role="alert">Fiebre: {fmtDec(tNow)} °C. Después de guardar, avisa al médico.</Alert>}
+      {outCount > 0 && (
+        <Alert role="alert">
+          {outCount === 1 ? 'Hay 1 valor fuera de lo normal. Revísalo antes de guardar.' : `Hay ${outCount} valores fuera de lo normal. Revísalos antes de guardar.`}
+        </Alert>
+      )}
+      {VITALS.map((v) => (
+        <VitalField key={v.k} def={v} value={vit[v.k]} onChange={(val) => { setVit((x) => ({ ...x, [v.k]: val })); setVitErr(''); }} />
+      ))}
+      <SwitchRow checked={notifyOn} onChange={setNotify} label="Avisar a la familia"
+        description={outCount > 0 ? 'Recomendado: hay valores fuera de lo normal.' : 'Recibirán un aviso con este control.'} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label htmlFor="v-note" style={{ fontWeight: 700, fontSize: fs(16) }}>Nota <span style={{ fontWeight: 400, color: 'var(--ink2)' }}>(opcional)</span></label>
+        <textarea id="v-note" rows={3} value={note} onChange={(e) => setNote(e.target.value)}
+          style={{ border: '1.5px solid var(--field)', borderRadius: 14, padding: '12px 14px', fontSize: fs(17), lineHeight: 1.4, background: 'var(--surface)', resize: 'vertical' }} />
       </div>
-    </div>
+      {vitErr && <p role="alert" style={{ margin: 0, color: 'var(--danger)', fontWeight: 700, fontSize: fs(15) }}>{vitErr}</p>}
+      {saveFailed && (
+        <div role="alert" style={{ display: 'flex', flexDirection: 'column', gap: 10, background: 'var(--dangerSoft)', border: '2px solid var(--danger)', borderRadius: 'var(--r)', padding: '14px 16px', color: 'var(--danger)' }}>
+          <p style={{ margin: 0, fontSize: fs(16), lineHeight: 1.4, fontWeight: 700 }}>No se pudo guardar el control. Tus datos siguen aquí: no se ha perdido nada.</p>
+          <Button variant="dangerOutline" size="md" onClick={save} disabled={busy} style={{ minHeight: 48, fontSize: fs(16) }}>Reintentar</Button>
+        </div>
+      )}
+      <Button onClick={save} disabled={busy}>{notifyOn ? 'Guardar y avisar a la familia' : 'Guardar control'}</Button>
+    </Screen>
   );
 }

@@ -1,23 +1,40 @@
+/* Lazo tokens: exact THEMES.Lazo from the design (Vela Rediseño.dc.html). --u is set on <html> by lib/textScale. */
 :root {
-  --page: #F1F5F2; --page2: #EEF3F0; --card: #fff; --ink: #28332E; --ink2: #3A4742; --ink3: #52605A;
-  --muted: #7C8A82; --muted2: #8A968E; --faint: #A9B4AD; --line: #E7EEE9; --lineSoft: #EEF3EF; --chipBg: #F2F6F3;
-  --brand: #5C8A77; --brand2: #41685A; --brandDeep: #487062; --onTint: #3C6353; --onBrand: #D6ECE1; --onBrand2: #CFE6DA;
-  --tint: #E3EFE9; --tint2: #DCEAE3; --tint3: #EAF3EE; --tintLine: #DCEAE3;
-  --warnBg: #FBF4E6; --warnLine: #F0E2C4; --warnInk: #8A6A1E; --warnInk2: #8A7338; --warnChip: #F2E4C2; --warnAmber: #C0913F;
-  --docBlue: #5E739B; --docBlueBg: #E4E9F0; --rosaBg: #F3EADF; --rosaInk: #A56F42; --anomalyDot: #D6A547;
+  --bg: #F4FAF7; --surface: #FFFFFF; --ink: #0E2F2B; --ink2: #3E5B56; --line: #CFE5DB; --field: #5E7A74;
+  --pri: #0F5C52; --onPri: #FFFFFF; --priSoft: #D9EEE7; --priText: #0F5C52;
+  --warn: #A35E00; --warnSoft: #FDEBD3; --warnInk: #663A00; --ok: #1F6A4A; --danger: #A3321F; --dangerSoft: #FBE4DE;
+  --fd: 'Atkinson Hyperlegible Next', system-ui, sans-serif; --fdw: 700;
+  --fb: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+  --r: 16px; --rb: 999px; --rbs: 999px;
+  --hero: #0F5C52; --heroInk: #FFFFFF; --heroSub: #CDEFE4;
+  --welcome: #DDF1E8; --welcomeInk: #0E2F2B; --welcomeSub: #3E5B56;
+  --logoInk: #0F4A44; --logoAccent: #E8705A;
+  --u: 1px;
 }
 
-* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
-html, body, #root { margin: 0; height: 100%; }
-body { font-family: 'Hanken Grotesk', sans-serif; background: var(--page); color: var(--ink); }
-a { color: var(--brand); text-decoration: none; }
-a:hover { color: var(--brand2); }
-input, textarea, button { font-family: inherit; }
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { margin: 0; min-height: 100%; }
+body { font-family: var(--fb); background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
+button, input, textarea { font-family: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--priText); }
+a:hover { color: var(--ink); }
+:focus-visible { outline: 3px solid #1B6FD8; outline-offset: 2px; }
 
-.serif { font-family: 'Instrument Serif', serif; }
-.pressable { cursor: pointer; }
-.side-item:hover { background: var(--chipBg); }
-.hoverable:hover { filter: brightness(1.04); }
+@keyframes lazoDraw { from { stroke-dashoffset: 1; } }
+@keyframes lazoPop { from { transform: scale(0); } }
+@keyframes lazoTie { 45% { transform: scale(.94); } }
+@keyframes lazoRise { from { transform: translateY(16px); opacity: 0; } }
 
-::-webkit-scrollbar { width: 10px; }
-::-webkit-scrollbar-thumb { background: #D5DFD9; border-radius: 99px; border: 3px solid var(--page); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Hover brightens slightly; press scales to .98. */
+.press { transition: transform 150ms cubic-bezier(.2, .8, .2, 1), filter 150ms cubic-bezier(.2, .8, .2, 1); }
+.press:hover { filter: brightness(1.08); }
+.press:active { transform: scale(.98); }
+.press:disabled { opacity: .5; cursor: not-allowed; filter: none; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-anim], [data-anim] * { animation: none !important; }
+  .press { transition: none; }
+}

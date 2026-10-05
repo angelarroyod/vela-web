@@ -1,0 +1,41 @@
+/* Layout + shell. Below 900px: the 390px design (single column, bottom tab bar). From 900px: 260px sidebar + centered column. */
+
+.lz-screen { width: 100%; max-width: 680px; margin: 0 auto; padding: 24px 20px 28px; display: flex; flex-direction: column; }
+.lz-screen.lz-form { max-width: 440px; padding: 24px 24px 32px; }
+
+.lz-app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: var(--bg); }
+.lz-body { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+.lz-main { flex: 1; min-height: 0; overflow-y: auto; }
+h1[tabindex="-1"]:focus { outline: none; } /* focused programmatically on screen change, not a control */
+.lz-tabs { flex-shrink: 0; display: flex; background: var(--surface); border-top: 1.5px solid var(--line); padding-bottom: 14px; }
+.lz-side { display: none; }
+
+.lz-side-item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 0 14px; border: none; border-radius: 14px;
+  background: transparent; color: var(--ink2); font-size: calc(var(--u) * 17); font-weight: 600; text-align: left; position: relative; }
+.lz-side-item:hover { background: var(--bg); }
+.lz-side-item[aria-current="page"] { background: var(--priSoft); color: var(--priText); font-weight: 800; }
+.lz-side-item[aria-current="page"]::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px; border-radius: 0 4px 4px 0; background: var(--pri); }
+
+@media (min-width: 900px) {
+  .lz-app { display: grid; grid-template-columns: 260px 1fr; }
+  .lz-side { display: flex; flex-direction: column; gap: 28px; min-height: 0; overflow-y: auto; padding: 24px 16px;
+    background: var(--surface); border-right: 1.5px solid var(--line); }
+  .lz-tabs { display: none; }
+  .lz-screen { padding: 32px; }
+  .lz-screen.lz-form { padding: 32px 24px; }
+  .lz-mobile-only { display: none !important; } /* e.g. the Inicio header logo, which the sidebar already shows */
+}
+
+/* Toast: fixed to the viewport, or 12px above the tab bar inside the app shell. */
+.lz-toast { position: fixed; left: 14px; right: 14px; bottom: 12px; max-width: 560px; margin: 0 auto; z-index: 40; pointer-events: none; }
+.lz-body > .lz-toast { position: absolute; }
+
+/* Sheet: bottom sheet on phones, centered dialog on wide screens. */
+.lz-scrim { position: fixed; inset: 0; z-index: 50; background: rgba(10, 20, 15, .5); display: flex; align-items: flex-end; justify-content: center; }
+.lz-sheet { width: 100%; max-width: 560px; max-height: 100%; overflow-y: auto; background: var(--surface); border-radius: 28px 28px 0 0;
+  padding: 24px 22px 36px; display: flex; flex-direction: column; gap: 14px; }
+.lz-sheet:focus { outline: none; }
+@media (min-width: 900px) {
+  .lz-scrim { align-items: center; padding: 24px; }
+  .lz-sheet { border-radius: 28px; padding: 28px; }
+}
