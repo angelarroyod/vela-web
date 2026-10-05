@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { Membership } from '../auth/useMembership';
 import { CareContext } from './useCare';
 import type { ScreenId } from './useCare';
-import { useCareTeam, useMe, usePatient, refetchLive } from './hooks';
+import { useCareTeam, useMe, useMessages, usePatient, refetchLive } from './hooks';
 import { firstName } from './logic';
 import { flushOutbox } from '../lib/offline';
 import { useToast } from '../ui/toast';
@@ -13,6 +13,7 @@ export function CareProvider({ membership, children }: { membership: Membership;
   const patient = usePatient(patientId);
   const me = useMe();
   const team = useCareTeam(patientId);
+  const messages = useMessages(patientId, me.id);
   const [screen, go] = useState<ScreenId>('inicio');
   const toast = useToast();
 
@@ -33,7 +34,7 @@ export function CareProvider({ membership, children }: { membership: Membership;
 
   return (
     <CareContext.Provider value={{
-      role: membership.role === 'nurse' ? 'nurse' : 'family', patientId, membership, patient, me, team, nameOf, screen, go, toast,
+      role: membership.role === 'nurse' ? 'nurse' : 'family', patientId, membership, patient, me, team, messages, nameOf, screen, go, toast,
     }}>
       {children}
     </CareContext.Provider>

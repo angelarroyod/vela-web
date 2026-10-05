@@ -141,6 +141,14 @@ export function watchText({ fever, watch }: { fever: { temp: number; time: strin
     ...watch.map((w) => `${lower(w.text.trim().replace(/\.+$/, ''))} ${hora('desde', w.time)}`),
   ];
   if (!parts.length) return '';
-  const s = new Intl.ListFormat('es', { type: 'conjunction' }).format(parts);
+  const s = listEs(parts);
   return `${s.charAt(0).toUpperCase()}${s.slice(1)}.${fever ? '' : ' Sin fiebre.'}`;
 }
+
+// "Violeta, Ana y Luis".
+export const listEs = (parts: string[]) => new Intl.ListFormat('es', { type: 'conjunction' }).format(parts);
+
+// Messages from others newer than the last time this user opened the chat. ISO timestamps from one
+// source (Postgres, server-set by 0005) compare correctly as strings; '' (never opened) counts everything.
+export const unreadCount = (msgs: { fromSelf: boolean; createdAt: string }[], seen: string) =>
+  msgs.filter((m) => !m.fromSelf && m.createdAt > seen).length;

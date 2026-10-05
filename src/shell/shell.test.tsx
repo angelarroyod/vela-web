@@ -6,12 +6,24 @@ const go = vi.fn();
 let care: Partial<Care> = {};
 vi.mock('../care/useCare', () => ({ useCare: () => care }));
 vi.mock('../auth/useAuth', () => ({ useAuth: () => ({ signOut: vi.fn() }) }));
+let unread = 0;
+vi.mock('../care/useUnread', () => ({ useUnread: () => unread }));
 
 const tabBar = () => within(screen.getAllByRole('navigation', { name: 'Navegación principal' })[1]);
 
 beforeEach(() => {
   go.mockClear();
   care = { role: 'nurse', screen: 'meds', go };
+  unread = 0;
+});
+
+test('nurse has a Mensajes tab with an unread count read out by screen readers', () => {
+  unread = 2;
+  render(<AppShell><h1>Inicio</h1></AppShell>);
+  const tab = tabBar().getByRole('button', { name: 'Mensajes, 2 mensajes sin leer' });
+  expect(within(tab).getByText('2', { selector: '[aria-hidden="true"]' })).toBeInTheDocument(); // the visible bubble, not the sr text
+  fireEvent.click(tab);
+  expect(go).toHaveBeenCalledWith('mensajes');
 });
 
 test('nurse tabs: meds highlights Inicio, a tab navigates', () => {
@@ -19,6 +31,13 @@ test('nurse tabs: meds highlights Inicio, a tab navigates', () => {
   expect(tabBar().getByRole('button', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
   fireEvent.click(tabBar().getByRole('button', { name: 'Signos' }));
   expect(go).toHaveBeenCalledWith('signos');
+});
+
+test('the badge caps at 9+', () => {
+  unread = 12;
+  render(<AppShell><h1>Inicio</h1></AppShell>);
+  const tab = tabBar().getByRole('button', { name: 'Mensajes, 12 mensajes sin leer' });
+  expect(within(tab).getByText('9+', { selector: '[aria-hidden="true"]' })).toBeInTheDocument();
 });
 
 test('family tabs and the sidebar settings link', () => {

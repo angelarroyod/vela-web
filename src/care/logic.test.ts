@@ -1,5 +1,5 @@
 import {
-  VITALS, checkVital, vitalMessage, parseDec, fmtDec, isFever, greeting, dayLabel, firstName, initials, aLas,
+  VITALS, checkVital, unreadCount, vitalMessage, parseDec, fmtDec, isFever, greeting, dayLabel, firstName, initials, aLas,
   feverState, nextStep, handoffSummary, pendingTasks, watchText,
 } from './logic';
 import type { NextStepInput } from './logic';
@@ -94,4 +94,12 @@ test('handoff builders', () => {
   expect(watchText({ fever: null, watch: [] })).toBe('');
   expect(watchText({ fever: null, watch: [tos] })).toBe('Tos seca de vez en cuando desde la 01:15. Sin fiebre.');
   expect(watchText({ fever: { temp: 38.2, time: '00:02' }, watch: [tos] })).toBe('Fiebre de 38,2 °C a las 00:02 y tos seca de vez en cuando desde la 01:15.');
+});
+
+test('unreadCount: only messages from others, newer than the last visit', () => {
+  const m = (createdAt: string, fromSelf = false) => ({ fromSelf, createdAt });
+  const msgs = [m('2026-10-05T10:00:00Z'), m('2026-10-05T11:00:00Z', true), m('2026-10-05T12:00:00Z')];
+  expect(unreadCount(msgs, '')).toBe(2);
+  expect(unreadCount(msgs, '2026-10-05T10:00:00Z')).toBe(1);
+  expect(unreadCount(msgs, '2026-10-05T12:00:00Z')).toBe(0);
 });

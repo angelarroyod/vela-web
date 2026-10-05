@@ -3,7 +3,7 @@ import type { Care } from '../../care/useCare';
 import type { CareEvent, Handoff, Medication, Message, Vital } from '../../care/data';
 import Estado from './Estado';
 import Actividad from './Actividad';
-import Mensajes from './Mensajes';
+import Mensajes from '../Mensajes';
 import Perfil from './Perfil';
 
 const go = vi.fn(), toast = vi.fn(), insert = vi.fn();
@@ -13,6 +13,12 @@ let vitals: Vital[], events: CareEvent[], msgs: Message[], meds: Medication[], h
 vi.mock('../../care/useCare', () => ({ useCare: () => care }));
 vi.mock('../../care/hooks', () => ({
   useVitals: () => vitals, useCareEvents: () => events, useMedications: () => meds, useMessages: () => msgs, useHandoffs: () => handoffs, refetchLive: () => {},
+}));
+vi.mock('../../lib/offline', () => ({
+  writeOrQueue: async (_t: string, row: Record<string, unknown>) => {
+    const r = await insert(row);
+    return r?.error ? { error: r.error.message } : { id: 'x' };
+  },
 }));
 vi.mock('../../lib/supabase', () => ({
   supabase: { from: () => ({ insert }) },
@@ -103,8 +109,9 @@ test('Actividad: empty text when nothing happened today', () => {
 });
 
 test('Mensajes: blank is ignored; Enter sends with sender and patient, then clears the draft', async () => {
-  msgs = [{ id: 'm1', body: 'Todo tranquilo.', time: '23:40', fromSelf: false, senderId: 'n1' },
-    { id: 'm2', body: 'Paso mañana.', time: '23:41', fromSelf: false, senderId: 'f2' }];
+  msgs = [{ id: 'm1', body: 'Todo tranquilo.', time: '23:40', fromSelf: false, senderId: 'n1', createdAt: now },
+    { id: 'm2', body: 'Paso mañana.', time: '23:41', fromSelf: false, senderId: 'f2', createdAt: now }];
+  care.messages = msgs;
   insert.mockResolvedValue({ error: null });
   render(<Mensajes />);
   expect(screen.getByRole('log')).toHaveTextContent('Marta dijo:Todo tranquilo.23:40Alguien del equipo dijo:Paso mañana.Alguien del equipo · 23:41');
@@ -122,6 +129,7 @@ test('Mensajes: blank is ignored; Enter sends with sender and patient, then clea
 
 test('Mensajes: a failed send keeps the draft and says so', async () => {
   insert.mockResolvedValue({ error: { message: 'x' } });
+  care.messages = [];
   render(<Mensajes />);
   const input = screen.getByLabelText('Escribe un mensaje a Marta');
   fireEvent.change(input, { target: { value: 'hola' } });

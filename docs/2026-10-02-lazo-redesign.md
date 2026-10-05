@@ -72,3 +72,10 @@ Each screen agent edits only its own files plus its own test file. Contracts in 
 ## Gates
 
 `npm test`, `npm run typecheck` (`tsc -b`), `npm run lint` (oxlint), `npm run build`. All green before commit.
+
+## Addendum (2026-10-05): nurse chat
+
+The live two-account test showed that family messages never reached the nurse: neither the design nor the mobile app gave the nurse a chat. Added:
+- **One shared `src/views/Mensajes.tsx` for both roles.** It is one thread per patient. The nurse's header names the family members, and the nurse gets neutral quick replies ("Todo tranquilo por aquí.", "Ahora lo reviso.", "Te aviso si hay cambios.").
+- **A 5th nurse tab** (Inicio, Signos, Relevo, Mensajes, Perfil).
+- **An unread badge on the Mensajes tab for both roles.** It is a number, so it isn't color-only, and screen readers hear "Mensajes, N mensajes sin leer". "Seen" is stored per device in localStorage (`lazo.seen.<patient>.<user>`), not as read receipts; `messages.read_at` would need an update policy.

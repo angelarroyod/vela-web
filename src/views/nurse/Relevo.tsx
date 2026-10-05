@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useCare } from '../../care/useCare';
 import { refetchLive } from '../../care/hooks';
-import { VITALS, aLas, checkVital, handoffSummary, pendingTasks, watchText } from '../../care/logic';
+import { VITALS, aLas, checkVital, handoffSummary, pendingTasks, watchText, listEs } from '../../care/logic';
 import { supabase } from '../../lib/supabase';
 import { Icon } from '../../components/Icon';
 import { Button } from '../../ui/controls';
@@ -9,7 +9,7 @@ import { EmptyState, Sheet } from '../../ui/feedback';
 import { Card, Screen, ScreenHeader, SectionLabel } from '../../ui/layout';
 import { fs, removeRow, shiftLabel, useShift } from './shared';
 
-const list = (parts: string[]) => new Intl.ListFormat('es', { type: 'conjunction' }).format(parts);
+const list = listEs;
 
 export default function Relevo() {
   const { patientId, me, membership, toast } = useCare();

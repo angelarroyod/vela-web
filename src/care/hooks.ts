@@ -37,7 +37,7 @@ export const mapEvent = (r: EventRow): CareEvent => ({
 
 type MsgRow = { id: string; sender_id: string; body: string; created_at: string };
 export const mapMessage = (r: MsgRow, selfId: string): Message => ({
-  id: r.id, body: r.body, time: time(r.created_at), fromSelf: r.sender_id === selfId, senderId: r.sender_id,
+  id: r.id, body: r.body, time: time(r.created_at), fromSelf: r.sender_id === selfId, senderId: r.sender_id, createdAt: r.created_at,
 });
 
 type HandoffRow = { id: string; nurse_id: string | null; summary: string | null; recommendation: string | null; ended_at: string | null };

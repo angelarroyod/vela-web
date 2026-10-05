@@ -31,7 +31,7 @@ test('mapEvent tone from severity', () => {
 
 test('mapMessage self', () => {
   const r = { id: '1', sender_id: 'me', body: 'h', created_at: '2026-07-03T00:00:00Z' };
-  expect(mapMessage(r, 'me')).toMatchObject({ fromSelf: true, senderId: 'me' });
+  expect(mapMessage(r, 'me')).toMatchObject({ fromSelf: true, senderId: 'me', createdAt: '2026-07-03T00:00:00Z' });
   expect(mapMessage({ ...r, sender_id: 'nurse' }, 'me').fromSelf).toBe(false);
 });
 

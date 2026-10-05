@@ -20,9 +20,10 @@ Built with **React + TypeScript + Vite** on **Supabase** (Postgres + Auth + Real
 |---|---|
 | **Inicio**: "Lo siguiente" (the one next step: fever → notify the doctor, first vitals, next dose, handoff), patient card, shift rows | **Estado**: plain-language status, "Lo que debes saber", latest vitals with Normal/Revisar words |
 | **Signos**: each value checked against its normal range as you type, fever alert, "Avisar a la familia" | **Actividad**: live feed with a "Para saber" filter |
-| **Medicación**: today's doses, "Marcar como dada" with undo | **Mensajes**: live chat with quick replies |
+| **Medicación**: today's doses, "Marcar como dada" with undo | **Mensajes**: live chat with quick replies and an unread badge |
 | **Relevo**: structured handoff (resumen → a vigilar → tareas → timeline) | **Perfil**: allergies, conditions, care team, 112 |
-| **Perfil**: family invite code (share or copy) | **Ajustes**: text size, privacy, delete account |
+| **Mensajes**: the same thread, so the nurse can answer the family (unread badge on the tab) | **Ajustes**: text size, privacy, delete account |
+| **Perfil**: family invite code (share or copy) | |
 
 Access is patient-scoped: a user only ever sees patients they're a member of. That's enforced by **Postgres RLS**, not by the client.
 
@@ -41,9 +42,10 @@ supabase/migrations/0001_schema.sql   # tables + profile trigger
 supabase/migrations/0002_rls.sql      # row-level security, helpers, RPCs
 supabase/migrations/0003_lazo.sql     # conditions/allergies, undo policies, care_team(), realtime publication
 supabase/migrations/0004_hardening.sql # security-advisor fixes: search_path, no RPCs for signed-out users
+supabase/migrations/0005_messages_server_time.sql # messages get the server's time (unread badge)
 ```
 
-All four are idempotent, so they're safe to re-run. Without `0003`, realtime updates won't fire on a fresh project.
+All five are idempotent, so they're safe to re-run. Without `0003`, realtime updates won't fire on a fresh project.
 
 Optional, for **Eliminar mi cuenta**: `supabase functions deploy delete-account`.
 

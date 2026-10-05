@@ -15,14 +15,14 @@ import NRelevo from './views/nurse/Relevo';
 import NPerfil from './views/nurse/Perfil';
 import FEstado from './views/family/Estado';
 import FActividad from './views/family/Actividad';
-import FMensajes from './views/family/Mensajes';
 import FPerfil from './views/family/Perfil';
+import Mensajes from './views/Mensajes';
 import Ajustes from './views/settings/Ajustes';
 import Privacidad from './views/settings/Privacidad';
 
 type Views = Partial<Record<ScreenId, ComponentType>> & { inicio: ComponentType };
-const NURSE: Views = { inicio: NInicio, signos: NSignos, meds: NMeds, relevo: NRelevo, perfil: NPerfil };
-const FAMILY: Views = { inicio: FEstado, actividad: FActividad, mensajes: FMensajes, perfil: FPerfil };
+const NURSE: Views = { inicio: NInicio, signos: NSignos, meds: NMeds, relevo: NRelevo, mensajes: Mensajes, perfil: NPerfil };
+const FAMILY: Views = { inicio: FEstado, actividad: FActividad, mensajes: Mensajes, perfil: FPerfil };
 
 function CurrentView() {
   const { role, screen, go } = useCare();
