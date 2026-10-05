@@ -72,9 +72,12 @@ export default function Inicio() {
             </div>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-            {/estable/i.test(patient.status)
-              ? <Chip tone="status" icon="check">{patient.status}</Chip>
-              : <Chip tone="warn" icon="warning">{patient.status}</Chip>}
+            {/* An open fever outranks the stored status (the family hero says "Necesita atención" too). */}
+            {s.fever
+              ? <Chip tone="warn" icon="warning">Fiebre</Chip>
+              : /estable/i.test(patient.status)
+                ? <Chip tone="status" icon="check">{patient.status}</Chip>
+                : <Chip tone="warn" icon="warning">{patient.status}</Chip>}
             {patient.conditions.map((c) => <Chip key={c}>{c}</Chip>)}
           </div>
         </Card>

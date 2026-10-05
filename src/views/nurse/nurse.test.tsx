@@ -75,6 +75,7 @@ test('Inicio: an open fever turns the hero into "avisa al médico" and records t
   data.vitals = [{ id: 'v1', sys: 120, dia: 80, hr: 70, temp: 38.2, spo2: 97, takenAt: new Date().toISOString(), time: '00:02', note: '', hasAnomaly: true, recordedBy: 'n1' }];
   render(<Inicio />);
   expect(screen.getByRole('heading', { name: 'AVISA AL MÉDICO' })).toBeInTheDocument();
+  expect(screen.getByText('Fiebre')).toBeInTheDocument(); // patient card chip outranks the stored "Estable"
   expect(screen.getByText('Fiebre de 38,2 °C a las 00:02')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Ya avisé al médico' }));
   await waitFor(() => expect(toast).toHaveBeenCalledWith('Queda anotado que avisaste al médico.'));

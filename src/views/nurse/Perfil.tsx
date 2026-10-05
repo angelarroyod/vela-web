@@ -59,7 +59,7 @@ export default function Perfil() {
         <Avatar text={initials(me.fullName)} size={60} radius={20} fontSize={21} />
         <div>
           <p style={{ margin: 0, fontWeight: 700, fontSize: fs(19) }}>{me.fullName}</p>
-          <p style={{ margin: '2px 0 0', fontSize: fs(15), color: 'var(--ink2)' }}>Enfermera{shift ? ` · ${shift.toLowerCase()}` : ''}</p>
+          <p style={{ margin: '2px 0 0', fontSize: fs(15), color: 'var(--ink2)' }}>Enfermería{shift ? ` · ${shift.toLowerCase()}` : ''}</p>
         </div>
       </div>
       <Card gap={12}>
