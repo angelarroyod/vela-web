@@ -40,9 +40,10 @@ Create a project at [supabase.com](https://supabase.com), then in its **SQL Edit
 supabase/migrations/0001_schema.sql   # tables + profile trigger
 supabase/migrations/0002_rls.sql      # row-level security, helpers, RPCs
 supabase/migrations/0003_lazo.sql     # conditions/allergies, undo policies, care_team(), realtime publication
+supabase/migrations/0004_hardening.sql # security-advisor fixes: search_path, no RPCs for signed-out users
 ```
 
-All three are idempotent, so they're safe to re-run. Without `0003`, realtime updates won't fire on a fresh project.
+All four are idempotent, so they're safe to re-run. Without `0003`, realtime updates won't fire on a fresh project.
 
 Optional, for **Eliminar mi cuenta**: `supabase functions deploy delete-account`.
 
